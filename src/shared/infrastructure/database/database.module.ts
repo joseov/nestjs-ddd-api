@@ -1,6 +1,7 @@
 import { Global, Inject, Module, OnModuleDestroy } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { WRITE_DATA_SOURCE, READ_DATA_SOURCE } from './tokens';
+import { databasePoolsProvider } from './database-pools.provider';
 import { writeDataSourceProvider } from './write-datasource.factory';
 import { readDataSourceProvider } from './read-datasource.factory';
 
@@ -15,7 +16,11 @@ import { readDataSourceProvider } from './read-datasource.factory';
  */
 @Global()
 @Module({
-  providers: [writeDataSourceProvider, readDataSourceProvider],
+  providers: [
+    databasePoolsProvider,
+    writeDataSourceProvider,
+    readDataSourceProvider,
+  ],
   exports: [WRITE_DATA_SOURCE, READ_DATA_SOURCE],
 })
 export class DatabaseModule implements OnModuleDestroy {
@@ -25,7 +30,17 @@ export class DatabaseModule implements OnModuleDestroy {
   ) {}
 
   async onModuleDestroy(): Promise<void> {
-    await this.writeDs.destroy();
-    await this.readDs.destroy();
+    const results = await Promise.allSettled([
+      this.writeDs.destroy(),
+      this.readDs.destroy(),
+    ]);
+
+    const failures = results
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map((r) => r.reason as Error);
+
+    if (failures.length > 0) {
+      throw new AggregateError(failures, 'DataSource teardown failed');
+    }
   }
 }

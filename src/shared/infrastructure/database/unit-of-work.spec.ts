@@ -56,6 +56,15 @@ describe('UnitOfWork', () => {
 
     expect(mockWriteDs.transaction).toHaveBeenCalledTimes(1);
   });
+
+  it('propagates the rejection of the work callback itself', async () => {
+    // The work callback rejects (not writeDs.transaction — the callback itself fails)
+    const callbackError = new Error('callback rejected by business logic');
+
+    await expect(
+      uow.runInTransaction(() => Promise.reject(callbackError)),
+    ).rejects.toThrow('callback rejected by business logic');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -35,6 +35,27 @@ describe('DatabaseModule', () => {
       expect(writeDs.destroy).toHaveBeenCalled();
       expect(readDs.destroy).toHaveBeenCalled();
     });
+
+    it('still calls readDs.destroy when writeDs.destroy rejects, then rethrows', async () => {
+      writeDs.destroy.mockRejectedValue(new Error('write destroy failed'));
+
+      await expect(module.onModuleDestroy()).rejects.toThrow(
+        'DataSource teardown failed',
+      );
+      expect(readDs.destroy).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows an AggregateError when any destroy fails', async () => {
+      writeDs.destroy.mockRejectedValue(new Error('w-fail'));
+      readDs.destroy.mockRejectedValue(new Error('r-fail'));
+
+      const rejection = module.onModuleDestroy();
+
+      await expect(rejection).rejects.toBeInstanceOf(AggregateError);
+      await expect(rejection).rejects.toMatchObject({
+        message: 'DataSource teardown failed',
+      });
+    });
   });
 
   describe('module metadata', () => {

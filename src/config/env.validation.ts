@@ -1,6 +1,14 @@
 import 'reflect-metadata';
 import { plainToInstance, Type } from 'class-transformer';
-import { IsIn, IsInt, IsString, Max, Min, validateSync } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  validateSync,
+} from 'class-validator';
 
 export class EnvironmentVariables {
   @IsIn(['development', 'test', 'production'])
@@ -57,6 +65,34 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   DB_READ_POOL_SIZE: number;
+
+  // ── Optional connection-pool timeout vars (MAJOR D) ─────────────────────
+  // connect timeout: @Min(1) because 0 means infinite wait on pool exhaustion.
+  // idle timeout:    @Min(0) because 0 disables idle eviction (valid use case).
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  DB_WRITE_CONNECT_TIMEOUT_MS?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  DB_WRITE_IDLE_TIMEOUT_MS?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  DB_READ_CONNECT_TIMEOUT_MS?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  DB_READ_IDLE_TIMEOUT_MS?: number;
 }
 
 export function validateEnv(

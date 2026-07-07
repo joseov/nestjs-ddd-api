@@ -141,6 +141,37 @@ describe('DatabaseWriteConfig', () => {
     const errors = validateSync(instance);
     expect(errors.some((e) => e.property === 'poolSize')).toBe(true);
   });
+
+  // MAJOR D — optional timeout fields
+  it('passes validation without optional connectTimeoutMs and idleTimeoutMs', () => {
+    const instance = plainToInstance(DatabaseWriteConfig, validWrite);
+    expect(validateSync(instance)).toHaveLength(0);
+  });
+
+  it('rejects connectTimeoutMs=0 (below minimum of 1)', () => {
+    const instance = plainToInstance(DatabaseWriteConfig, {
+      ...validWrite,
+      connectTimeoutMs: 0,
+    });
+    const errors = validateSync(instance);
+    expect(errors.some((e) => e.property === 'connectTimeoutMs')).toBe(true);
+  });
+
+  it('accepts connectTimeoutMs=1 (minimum boundary)', () => {
+    const instance = plainToInstance(DatabaseWriteConfig, {
+      ...validWrite,
+      connectTimeoutMs: 1,
+    });
+    expect(validateSync(instance)).toHaveLength(0);
+  });
+
+  it('accepts idleTimeoutMs=0 (0 disables idle eviction, boundary is valid)', () => {
+    const instance = plainToInstance(DatabaseWriteConfig, {
+      ...validWrite,
+      idleTimeoutMs: 0,
+    });
+    expect(validateSync(instance)).toHaveLength(0);
+  });
 });
 
 describe('databaseWriteConfigFactory (parseInt fallback behavior)', () => {
@@ -208,6 +239,29 @@ describe('DatabaseReadConfig', () => {
     });
     const errors = validateSync(instance);
     expect(errors.some((e) => e.property === 'poolSize')).toBe(true);
+  });
+
+  // MAJOR D — optional timeout fields
+  it('passes validation without optional connectTimeoutMs and idleTimeoutMs', () => {
+    const instance = plainToInstance(DatabaseReadConfig, validRead);
+    expect(validateSync(instance)).toHaveLength(0);
+  });
+
+  it('rejects connectTimeoutMs=0 (below minimum of 1)', () => {
+    const instance = plainToInstance(DatabaseReadConfig, {
+      ...validRead,
+      connectTimeoutMs: 0,
+    });
+    const errors = validateSync(instance);
+    expect(errors.some((e) => e.property === 'connectTimeoutMs')).toBe(true);
+  });
+
+  it('accepts idleTimeoutMs=0 (boundary is valid)', () => {
+    const instance = plainToInstance(DatabaseReadConfig, {
+      ...validRead,
+      idleTimeoutMs: 0,
+    });
+    expect(validateSync(instance)).toHaveLength(0);
   });
 });
 
