@@ -4,6 +4,11 @@ import { ConfigService } from '@nestjs/config';
 
 jest.mock('typeorm', () => ({
   DataSource: jest.fn(),
+  // TypeORM class decorators — must be callable so that ORM entities imported
+  // transitively (e.g. via database-pools.provider) do not throw at module load.
+  Entity: () => () => undefined,
+  PrimaryColumn: () => () => undefined,
+  Column: () => () => undefined,
 }));
 
 import { buildDatabasePools } from './database-pools.provider';

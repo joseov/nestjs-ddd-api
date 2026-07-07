@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
+import { TaskOrmEntity } from './src/modules/tasks/infrastructure/persistence/entities/task.orm-entity';
 
 /**
  * TypeORM CLI entry point for migration commands (write DataSource only).
@@ -9,7 +10,7 @@ import { DataSource } from 'typeorm';
  *
  * Entities are registered as an explicit class array — no glob patterns,
  * which break under nodenext / CJS + `nest build` (design D2).
- * Populate this array as ORM entity classes are introduced in later PRs.
+ * Add new ORM entity classes here as they are introduced.
  *
  * synchronize is always false — schema is managed via migrations only.
  */
@@ -23,7 +24,7 @@ export default new DataSource({
   extra: {
     max: parseInt(process.env.DB_WRITE_POOL_SIZE ?? '10', 10),
   },
-  entities: [],
+  entities: [TaskOrmEntity],
   synchronize: false,
   migrations: ['dist/migrations/*.js'],
   migrationsTableName: 'migrations',
