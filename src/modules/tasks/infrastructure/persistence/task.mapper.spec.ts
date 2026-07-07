@@ -95,6 +95,19 @@ describe('TaskMapper', () => {
       expect(task.status.value).toBe('DONE');
     });
 
+    it('throws when the persisted status string is not a known TaskStatusValue', () => {
+      const orm = new TaskOrmEntity();
+      orm.id = 'dom-uuid-bad';
+      orm.title = 'Corrupted row';
+      orm.status = 'INVALID_STATUS';
+
+      // Guard against data corruption / schema drift: unknown persisted
+      // status must fail loudly, never fall back to a default
+      expect(() => mapper.toDomain(orm)).toThrow(
+        'Unknown TaskStatus value: "INVALID_STATUS"',
+      );
+    });
+
     it('yields zero domain events — reconstitute never emits TaskCreated', () => {
       const orm = new TaskOrmEntity();
       orm.id = 'dom-uuid-4';

@@ -3,14 +3,17 @@
  *
  * These tests require a live PostgreSQL connection.
  * They are NOT part of the default `pnpm test` suite (testRegex: *.spec.ts$).
- * Run with: pnpm run test:int
+ * Run with: RUN_INT_TESTS=1 pnpm run test:int
  *
  * Environment variables needed (or set DB_* to point at a local test DB):
  *   DB_WRITE_HOST, DB_WRITE_PORT, DB_WRITE_USERNAME, DB_WRITE_PASSWORD,
- *   DB_WRITE_DATABASE, DB_WRITE_POOL_SIZE
- *   (read-side uses same values for local dev — set DB_READ_* identically)
+ *   DB_WRITE_DATABASE
  *
- * The suite skips automatically when the database is unreachable.
+ * Gating contract (no silent green):
+ *   - RUN_INT_TESTS unset  -> every test reports as SKIPPED, visibly.
+ *   - RUN_INT_TESTS=1 with an unreachable database -> beforeAll throws and the
+ *     whole suite FAILS loudly. A run that did not touch the database must
+ *     never report passed.
  */
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
@@ -20,6 +23,12 @@ import { TaskOrmEntity } from './entities/task.orm-entity';
 import { TaskMapper } from './task.mapper';
 import { TaskWriteRepository } from './task-write.repository';
 import { TaskReadRepository } from './task-read.repository';
+
+const RUN_INT_TESTS = process.env.RUN_INT_TESTS === '1';
+
+// Registration-time gate: skipped tests show up as "skipped" in the report,
+// never as false green
+const itInt = RUN_INT_TESTS ? it : it.skip;
 
 // ─── DataSource factory (test-only) ──────────────────────────────────────────
 
@@ -36,56 +45,39 @@ function buildTestDataSource(): DataSource {
   });
 }
 
-// ─── Suite (skipped when DB is unavailable) ───────────────────────────────────
-
 describe('TaskWriteRepository + TaskReadRepository (integration)', () => {
   let dataSource: DataSource;
   let mapper: TaskMapper;
   let writeRepo: TaskWriteRepository;
   let readRepo: TaskReadRepository;
-  let available = true;
 
   beforeAll(async () => {
-    dataSource = buildTestDataSource();
-    try {
-      await dataSource.initialize();
-    } catch {
-      available = false;
-    }
+    if (!RUN_INT_TESTS) return;
 
-    if (available) {
-      mapper = new TaskMapper();
-      writeRepo = new TaskWriteRepository(dataSource, dataSource, mapper);
-      readRepo = new TaskReadRepository(dataSource, dataSource, mapper);
-    }
+    dataSource = buildTestDataSource();
+    // No try/catch: an unreachable database must fail the suite loudly
+    await dataSource.initialize();
+
+    mapper = new TaskMapper();
+    writeRepo = new TaskWriteRepository(dataSource, dataSource, mapper);
+    readRepo = new TaskReadRepository(dataSource, dataSource, mapper);
   });
 
   afterEach(async () => {
-    if (available) {
+    if (RUN_INT_TESTS && dataSource?.isInitialized) {
       await dataSource.getRepository(TaskOrmEntity).clear();
     }
   });
 
   afterAll(async () => {
-    if (available && dataSource.isInitialized) {
+    if (RUN_INT_TESTS && dataSource?.isInitialized) {
       await dataSource.destroy();
     }
   });
 
-  // Helper: skip individual tests when DB is unavailable
-  function itIfAvailable(name: string, fn: () => Promise<void>): void {
-    it(name, async () => {
-      if (!available) {
-        console.warn('Skipping integration test — database not available');
-        return;
-      }
-      await fn();
-    });
-  }
-
   // ── save persists a row ─────────────────────────────────────────────────────
 
-  itIfAvailable(
+  itInt(
     'save persists a task row that can be retrieved via the raw repository',
     async () => {
       const taskId = new TaskId('int-uuid-1');
@@ -107,7 +99,7 @@ describe('TaskWriteRepository + TaskReadRepository (integration)', () => {
 
   // ── findById round-trips ────────────────────────────────────────────────────
 
-  itIfAvailable(
+  itInt(
     'TaskReadRepository.findById round-trips through the read DataSource',
     async () => {
       const taskId = new TaskId('int-uuid-2');
@@ -128,7 +120,7 @@ describe('TaskWriteRepository + TaskReadRepository (integration)', () => {
 
   // ── TaskWriteRepository.findById sees uncommitted data in the same tx ────────
 
-  itIfAvailable(
+  itInt(
     'TaskWriteRepository.findById sees the row within the same transaction',
     async () => {
       const taskId = new TaskId('int-uuid-3');
@@ -149,7 +141,7 @@ describe('TaskWriteRepository + TaskReadRepository (integration)', () => {
 
   // ── not-found returns null ──────────────────────────────────────────────────
 
-  itIfAvailable(
+  itInt(
     'TaskWriteRepository.findById returns null for a non-existent id',
     async () => {
       await dataSource.transaction(async (manager) => {
@@ -162,7 +154,7 @@ describe('TaskWriteRepository + TaskReadRepository (integration)', () => {
     },
   );
 
-  itIfAvailable(
+  itInt(
     'TaskReadRepository.findById returns null for a non-existent id',
     async () => {
       const result = await readRepo.findById(new TaskId('non-existent-read'));
