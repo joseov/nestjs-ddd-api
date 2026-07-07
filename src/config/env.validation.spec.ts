@@ -72,4 +72,36 @@ describe('validateEnv', () => {
 
     expect(() => validateEnv(invalid)).toThrow(/DB_WRITE_POOL_SIZE/);
   });
+
+  // MAJOR 3 — missing-var coverage for DB_WRITE_* and DB_READ_* groups
+  it('should throw and name DB_WRITE_HOST when that variable is absent', () => {
+    const incomplete = { ...validEnv };
+    delete incomplete.DB_WRITE_HOST;
+
+    expect(() => validateEnv(incomplete)).toThrow(/DB_WRITE_HOST/);
+  });
+
+  it('should throw and name DB_READ_DATABASE when that variable is absent', () => {
+    const incomplete = { ...validEnv };
+    delete incomplete.DB_READ_DATABASE;
+
+    expect(() => validateEnv(incomplete)).toThrow(/DB_READ_DATABASE/);
+  });
+
+  // MAJOR 4 — port boundary tests (parameterized)
+  it('should reject PORT=0 (below minimum of 1)', () => {
+    expect(() => validateEnv({ ...validEnv, PORT: '0' })).toThrow(/PORT/);
+  });
+
+  it('should accept PORT=1 (minimum boundary)', () => {
+    expect(() => validateEnv({ ...validEnv, PORT: '1' })).not.toThrow();
+  });
+
+  it('should accept PORT=65535 (maximum boundary)', () => {
+    expect(() => validateEnv({ ...validEnv, PORT: '65535' })).not.toThrow();
+  });
+
+  it('should reject PORT=65536 (above maximum of 65535)', () => {
+    expect(() => validateEnv({ ...validEnv, PORT: '65536' })).toThrow(/PORT/);
+  });
 });

@@ -59,7 +59,9 @@ export class EnvironmentVariables {
   DB_READ_POOL_SIZE: number;
 }
 
-export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables {
+export function validateEnv(
+  raw: Record<string, unknown>,
+): EnvironmentVariables {
   const validated = plainToInstance(EnvironmentVariables, raw, {
     enableImplicitConversion: false,
   });
