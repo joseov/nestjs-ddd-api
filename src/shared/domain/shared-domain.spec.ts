@@ -19,10 +19,27 @@ class Money extends ValueObject<MoneyProps> {
   }
 }
 
+// Nested VO used to verify key-order-independent deep equality
+interface NestedProps {
+  inner: { x: number; y: number };
+  label: string;
+}
+
+class NestedVO extends ValueObject<NestedProps> {
+  constructor(props: NestedProps) {
+    super(props);
+  }
+}
+
 // --- Entity ---
 
+// UserId implements value equality so Entity<UserId>.equals delegates correctly
 class UserId {
   constructor(public readonly value: string) {}
+
+  equals(other: UserId): boolean {
+    return this.value === other.value;
+  }
 }
 
 class User extends Entity<UserId> {
@@ -89,13 +106,23 @@ describe('ValueObject', () => {
 
     expect(a.equals(undefined)).toBe(false);
   });
+
+  // MINOR 6 — key-order independence (JSON.stringify is key-order sensitive; deepEqual must not be)
+  it('should be equal when nested props carry the same values but different key insertion order', () => {
+    const a = new NestedVO({ inner: { x: 1, y: 2 }, label: 'test' });
+    // outer keys reversed, inner keys reversed — same values
+    const b = new NestedVO({ label: 'test', inner: { y: 2, x: 1 } });
+
+    expect(a.equals(b)).toBe(true);
+  });
 });
 
 describe('Entity', () => {
-  it('should be equal when ids are reference-equal', () => {
-    const id = new UserId('abc');
-    const a = new User(id);
-    const b = new User(id);
+  // CRITICAL 2 — behavioral contract: two separately-hydrated entities with the same ID value must be equal.
+  // This is the mapper/repository case: two round-trips through storage produce different object references.
+  it('should be equal when ids represent the same value (separate instances)', () => {
+    const a = new User(new UserId('abc'));
+    const b = new User(new UserId('abc'));
 
     expect(a.equals(b)).toBe(true);
   });
@@ -152,10 +179,9 @@ describe('AggregateRoot', () => {
     expect(events).toHaveLength(2);
   });
 
-  it('should inherit equals from Entity (id-based comparison)', () => {
-    const id = new UserId('same');
-    const a = new UserAggregate(id);
-    const b = new UserAggregate(id);
+  it('should inherit equals from Entity (value-based id comparison)', () => {
+    const a = new UserAggregate(new UserId('same'));
+    const b = new UserAggregate(new UserId('same'));
 
     expect(a.equals(b)).toBe(true);
   });
