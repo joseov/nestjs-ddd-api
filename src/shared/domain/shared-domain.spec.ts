@@ -31,6 +31,18 @@ class NestedVO extends ValueObject<NestedProps> {
   }
 }
 
+// VO holding a Date — Date has no enumerable own properties, so structural
+// comparison must branch on Date explicitly instead of walking keys
+interface IssuedProps {
+  issuedAt: Date;
+}
+
+class IssuedVO extends ValueObject<IssuedProps> {
+  constructor(props: IssuedProps) {
+    super(props);
+  }
+}
+
 // --- Entity ---
 
 // UserId implements value equality so Entity<UserId>.equals delegates correctly
@@ -112,6 +124,20 @@ describe('ValueObject', () => {
     const a = new NestedVO({ inner: { x: 1, y: 2 }, label: 'test' });
     // outer keys reversed, inner keys reversed — same values
     const b = new NestedVO({ label: 'test', inner: { y: 2, x: 1 } });
+
+    expect(a.equals(b)).toBe(true);
+  });
+
+  it('should not be equal when Date props differ in value', () => {
+    const a = new IssuedVO({ issuedAt: new Date('2020-01-01T00:00:00Z') });
+    const b = new IssuedVO({ issuedAt: new Date('2025-12-31T00:00:00Z') });
+
+    expect(a.equals(b)).toBe(false);
+  });
+
+  it('should be equal when Date props carry the same instant (separate instances)', () => {
+    const a = new IssuedVO({ issuedAt: new Date('2020-01-01T00:00:00Z') });
+    const b = new IssuedVO({ issuedAt: new Date('2020-01-01T00:00:00Z') });
 
     expect(a.equals(b)).toBe(true);
   });

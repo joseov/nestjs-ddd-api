@@ -6,6 +6,14 @@ function deepEqual(a: unknown, b: unknown): boolean {
   if (a === null || b === null) return false;
   if (typeof a !== 'object' || typeof b !== 'object') return false;
 
+  // Date has no enumerable own properties, so key-walking below would compare
+  // any two Dates as vacuously equal — compare by instant instead
+  if (a instanceof Date || b instanceof Date) {
+    return (
+      a instanceof Date && b instanceof Date && a.getTime() === b.getTime()
+    );
+  }
+
   const aObj = a as Record<string, unknown>;
   const bObj = b as Record<string, unknown>;
   const keysA = Object.keys(aObj).sort();
