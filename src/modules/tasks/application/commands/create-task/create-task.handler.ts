@@ -21,6 +21,12 @@ import { TaskId } from '../../../domain/value-objects/task-id.vo';
  *   and published ONLY after the transaction resolves. If the transaction
  *   rejects, the catch propagates to the caller and no events are published —
  *   preventing phantom events for uncommitted writes.
+ *
+ * Publish failure contract: if EventBus.publish rejects after the commit, the
+ * rejection propagates to the caller and the event is NOT retried — the write
+ * is durable but the event is lost. Consumers needing guaranteed delivery
+ * must add an outbox (out of scope for this boilerplate). Do not wrap the
+ * publish loop in a swallowing try/catch.
  */
 @CommandHandler(CreateTaskCommand)
 export class CreateTaskHandler implements ICommandHandler<CreateTaskCommand> {

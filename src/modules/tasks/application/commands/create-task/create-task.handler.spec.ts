@@ -9,6 +9,7 @@ import {
   TransactionContext,
 } from '../../../../../shared/infrastructure/database/unit-of-work';
 import { TaskCreated } from '../../../domain/events/task-created.event';
+import { TaskDomainError } from '../../../domain/errors/task-domain.error';
 
 describe('CreateTaskHandler', () => {
   let handler: CreateTaskHandler;
@@ -18,8 +19,9 @@ describe('CreateTaskHandler', () => {
   let mockUow: { runInTransaction: jest.Mock };
   let mockEventBus: { publish: jest.Mock };
 
-  // A plain object used as the fake EntityManager from the UoW callback
-  const mockManager = {};
+  // Branded so toHaveBeenCalledWith structural equality only matches THIS
+  // instance — a bare {} would be satisfied by any freshly created object
+  const mockManager = { __brand: 'test-entity-manager' };
 
   beforeEach(() => {
     mockWriteRepo = {
@@ -33,7 +35,9 @@ describe('CreateTaskHandler', () => {
         .fn()
         .mockImplementation(
           (work: (ctx: TransactionContext) => Promise<unknown>) =>
-            work({ manager: mockManager as TransactionContext['manager'] }),
+            work({
+              manager: mockManager as unknown as TransactionContext['manager'],
+            }),
         ),
     };
 
@@ -88,7 +92,9 @@ describe('CreateTaskHandler', () => {
 
       mockUow.runInTransaction.mockImplementation(
         async (work: (ctx: TransactionContext) => Promise<unknown>) => {
-          await work({ manager: mockManager as TransactionContext['manager'] });
+          await work({
+            manager: mockManager as unknown as TransactionContext['manager'],
+          });
           callOrder.push('transaction-committed');
         },
       );
@@ -131,6 +137,13 @@ describe('CreateTaskHandler', () => {
       expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
       const [publishedEvent] = mockEventBus.publish.mock.calls[0] as [unknown];
       expect(publishedEvent).toBeInstanceOf(TaskCreated);
+      // Payload must be the drained event's data, not a re-created stub
+      expect(publishedEvent).toEqual(
+        expect.objectContaining({
+          taskId: 'task-id-7',
+          title: 'Event identity',
+        }),
+      );
     });
 
     it('drains the aggregate event queue: exactly one event per execution', async () => {
@@ -140,6 +153,29 @@ describe('CreateTaskHandler', () => {
 
       // Task.create adds exactly one TaskCreated event — no accidental double-drain
       expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── domain validation before transaction ──────────────────────────────────
+  // Validate-then-transact is a load-bearing contract: an invalid command must
+  // never open a transaction. If Task.create ever moves inside the UoW
+  // callback, these tests fail.
+
+  describe('domain validation', () => {
+    it('rejects with TaskDomainError for an empty title without opening a transaction', async () => {
+      const command = new CreateTaskCommand('task-id-9', '');
+
+      await expect(handler.execute(command)).rejects.toThrow(TaskDomainError);
+      expect(mockUow.runInTransaction).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+    });
+
+    it('rejects with TaskDomainError for a whitespace-only title without opening a transaction', async () => {
+      const command = new CreateTaskCommand('task-id-10', '   ');
+
+      await expect(handler.execute(command)).rejects.toThrow(TaskDomainError);
+      expect(mockUow.runInTransaction).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
     });
   });
 });
