@@ -1,6 +1,7 @@
 import type { FactoryProvider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { TaskOrmEntity } from '../../../modules/tasks/infrastructure/persistence/entities/task.orm-entity';
 
 /**
  * Internal DI token for the atomic pool object that holds both DataSources.
@@ -50,7 +51,7 @@ export async function buildDatabasePools(
       idleTimeoutMillis:
         configService.get<number>('DB_WRITE_IDLE_TIMEOUT_MS') ?? 30000,
     },
-    entities: [],
+    entities: [TaskOrmEntity],
     synchronize: false,
   });
 
@@ -78,7 +79,7 @@ export async function buildDatabasePools(
       idleTimeoutMillis:
         configService.get<number>('DB_READ_IDLE_TIMEOUT_MS') ?? 30000,
     },
-    entities: [],
+    entities: [TaskOrmEntity],
     synchronize: false,
   });
 
