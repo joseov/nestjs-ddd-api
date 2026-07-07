@@ -118,6 +118,17 @@ describe('buildDatabasePools', () => {
     ).rejects.toThrow('Failed to initialize READ_DATA_SOURCE: conn timeout');
   });
 
+  it('still rejects with the labeled READ error when the write cleanup destroy also fails', async () => {
+    readInitialize.mockRejectedValue(new Error('ECONNREFUSED read'));
+    writeDestroy.mockRejectedValue(new Error('destroy blew up'));
+
+    await expect(
+      buildDatabasePools(makeConfigService(BASE_VARS)),
+    ).rejects.toThrow(
+      'Failed to initialize READ_DATA_SOURCE: ECONNREFUSED read',
+    );
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // CRITICAL C — per-factory initialize rejection test
   // ─────────────────────────────────────────────────────────────────────────

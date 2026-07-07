@@ -85,7 +85,13 @@ export async function buildDatabasePools(
   try {
     await readDs.initialize();
   } catch (err) {
-    await writeDs.destroy();
+    // Best-effort cleanup: a failing destroy must not mask the init error,
+    // which is the actionable root cause for whoever reads the boot logs
+    try {
+      await writeDs.destroy();
+    } catch {
+      // swallowed intentionally — the labeled init error below wins
+    }
     throw new Error(
       `Failed to initialize READ_DATA_SOURCE: ${(err as Error).message}`,
       { cause: err },
