@@ -132,6 +132,39 @@ describe('Task.create', () => {
   });
 });
 
+// ─── Task.reconstitute ────────────────────────────────────────────────────────
+
+describe('Task.reconstitute', () => {
+  it('restores title and status without recording a domain event', () => {
+    const task = Task.reconstitute(
+      new TaskId('r-1'),
+      'Existing task',
+      TaskStatus.done(),
+    );
+
+    expect(task.title).toBe('Existing task');
+    expect(task.status.value).toBe('DONE');
+    expect(task.pullDomainEvents()).toHaveLength(0);
+  });
+
+  it('does not enforce the title invariant (rehydration trusts persisted state)', () => {
+    expect(() =>
+      Task.reconstitute(new TaskId('r-2'), '', TaskStatus.pending()),
+    ).not.toThrow();
+  });
+});
+
+// ─── TaskCreated event ────────────────────────────────────────────────────────
+
+describe('TaskCreated', () => {
+  it('accepts an injected occurredOn for deterministic time-sensitive tests', () => {
+    const knownDate = new Date('2026-01-15T10:00:00Z');
+    const event = new TaskCreated('id-1', 'title', knownDate);
+
+    expect(event.occurredOn).toBe(knownDate);
+  });
+});
+
 // ─── Repository tokens ───────────────────────────────────────────────────────
 
 describe('task repository tokens', () => {
@@ -157,6 +190,8 @@ describe('ITaskWriteRepository structural contract', () => {
       findById: () => Promise.resolve(null),
     };
 
+    // Intentionally trivial assertion — the test value is the typed
+    // assignment above, which fails compilation if the shape is wrong
     expect(impl).toBeDefined();
   });
 });
@@ -167,6 +202,8 @@ describe('ITaskReadRepository structural contract', () => {
       findById: () => Promise.resolve(null),
     };
 
+    // Intentionally trivial assertion — the test value is the typed
+    // assignment above, which fails compilation if the shape is wrong
     expect(impl).toBeDefined();
   });
 });
@@ -176,16 +213,20 @@ describe('ITaskReadRepository structural contract', () => {
 describe('Domain layer import hygiene', () => {
   const domainDir = path.join(__dirname);
 
-  const sourceFiles = [
-    'entities/task.aggregate.ts',
-    'value-objects/task-id.vo.ts',
-    'value-objects/task-status.vo.ts',
-    'events/task-created.event.ts',
-    'repositories/i-task-write.repository.ts',
-    'repositories/i-task-read.repository.ts',
-    'task-repository.tokens.ts',
-    'errors/task-domain.error.ts',
-  ];
+  // Recursive scan so files added later are covered automatically —
+  // a hard-coded list would let a new file with an ORM import slip through
+  function collectSourceFiles(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return collectSourceFiles(full);
+      if (entry.name.endsWith('.ts') && !entry.name.endsWith('.spec.ts')) {
+        return [path.relative(domainDir, full)];
+      }
+      return [];
+    });
+  }
+
+  const sourceFiles = collectSourceFiles(domainDir);
 
   const bannedPatterns = [
     "from '@nestjs",
