@@ -104,4 +104,55 @@ describe('validateEnv', () => {
   it('should reject PORT=65536 (above maximum of 65535)', () => {
     expect(() => validateEnv({ ...validEnv, PORT: '65536' })).toThrow(/PORT/);
   });
+
+  // MAJOR D — optional connection/idle timeout vars
+  it('accepts validEnv without optional timeout vars (absent is valid)', () => {
+    expect(() => validateEnv({ ...validEnv })).not.toThrow();
+  });
+
+  it('accepts DB_WRITE_CONNECT_TIMEOUT_MS=1 (minimum boundary for connect timeout)', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, DB_WRITE_CONNECT_TIMEOUT_MS: '1' }),
+    ).not.toThrow();
+  });
+
+  it('rejects DB_WRITE_CONNECT_TIMEOUT_MS=0 (below minimum of 1; 0 would mean infinite wait)', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, DB_WRITE_CONNECT_TIMEOUT_MS: '0' }),
+    ).toThrow(/DB_WRITE_CONNECT_TIMEOUT_MS/);
+  });
+
+  it('rejects DB_WRITE_CONNECT_TIMEOUT_MS=abc (non-numeric string)', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, DB_WRITE_CONNECT_TIMEOUT_MS: 'abc' }),
+    ).toThrow(/DB_WRITE_CONNECT_TIMEOUT_MS/);
+  });
+
+  it('accepts DB_WRITE_IDLE_TIMEOUT_MS=0 (0 disables idle eviction, boundary is valid)', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, DB_WRITE_IDLE_TIMEOUT_MS: '0' }),
+    ).not.toThrow();
+  });
+
+  it('accepts DB_READ_CONNECT_TIMEOUT_MS and DB_READ_IDLE_TIMEOUT_MS when valid', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        DB_READ_CONNECT_TIMEOUT_MS: '3000',
+        DB_READ_IDLE_TIMEOUT_MS: '60000',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects DB_READ_CONNECT_TIMEOUT_MS=0 (below minimum of 1)', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, DB_READ_CONNECT_TIMEOUT_MS: '0' }),
+    ).toThrow(/DB_READ_CONNECT_TIMEOUT_MS/);
+  });
+
+  it('rejects DB_READ_IDLE_TIMEOUT_MS=-1 (below minimum of 0)', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, DB_READ_IDLE_TIMEOUT_MS: '-1' }),
+    ).toThrow(/DB_READ_IDLE_TIMEOUT_MS/);
+  });
 });
